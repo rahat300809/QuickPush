@@ -2,16 +2,18 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const dns = require('dns').promises;
+const { getGitCommandPath } = require('./git-installer');
 
 /**
  * Spawns a process and logs stdout/stderr line-by-line.
  */
 function spawnPromise(command, args, options, onLog) {
+  const resolvedCommand = command === 'git' ? (getGitCommandPath() || 'git') : command;
   return new Promise((resolve, reject) => {
-    // Log the system command execution
-    onLog('system', `> ${command} ${args.join(' ')}`);
+    // Log the system command execution showing clean 'git' command
+    onLog('system', `> git ${args.join(' ')}`);
 
-    const proc = spawn(command, args, { ...options, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+    const proc = spawn(resolvedCommand, args, { ...options, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
 
     let stdoutBuffer = '';
     let stderrBuffer = '';
@@ -62,11 +64,7 @@ function spawnPromise(command, args, options, onLog) {
  * Check if Git is installed and visible in path.
  */
 async function isGitInstalled() {
-  return new Promise((resolve) => {
-    const proc = spawn('git', ['--version']);
-    proc.on('error', () => resolve(false));
-    proc.on('close', (code) => resolve(code === 0));
-  });
+  return getGitCommandPath() !== null;
 }
 
 /**

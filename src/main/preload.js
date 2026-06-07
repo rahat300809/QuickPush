@@ -24,5 +24,7 @@ contextBridge.exposeInMainWorld('api', {
   getRecentRepos: () => ipcRenderer.invoke('get-recent-repos'),
   getSyncHistory: () => ipcRenderer.invoke('get-sync-history'),
   clearSyncHistory: () => ipcRenderer.invoke('clear-sync-history'),
-  untrackRepo: (folderPath) => ipcRenderer.invoke('untrack-repo', folderPath)
+  untrackRepo: (folderPath) => ipcRenderer.invoke('untrack-repo', folderPath),
+  isGitInstalled: () => ipcRenderer.invoke('is-git-installed'),
+  installGit: (username, email) => ipcRenderer.invoke('install-git', { username, email })
 });

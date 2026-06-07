@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { store, historyStore } = require('./store');
 const { runGitPush } = require('./git-service');
+const { getGitCommandPath, downloadGitInstaller, runGitSetup, configureGit } = require('./git-installer');
 const {
   registerContextMenu,
   unregisterContextMenu,
@@ -253,7 +254,8 @@ function countFiles(dir) {
 // Git command quick executor
 function runGitCommand(args, cwd) {
   return new Promise((resolve) => {
-    execFile('git', args, { cwd }, (err, stdout) => {
+    const gitCmd = getGitCommandPath() || 'git';
+    execFile(gitCmd, args, { cwd }, (err, stdout) => {
       if (err) resolve('');
       else resolve(stdout);
     });
@@ -267,6 +269,10 @@ ipcMain.handle('get-folder-stats', async (event, folderPath) => {
   }
 
   const filesCount = countFiles(folderPath);
+
+  if (getGitCommandPath() === null) {
+    return { filesCount, gitStatus: 'No Git', repoConnected: 'No' };
+  }
 
   const dotGitPath = path.join(folderPath, '.git');
   if (!fs.existsSync(dotGitPath)) {
@@ -332,4 +338,45 @@ ipcMain.handle('clear-sync-history', () => {
 ipcMain.handle('untrack-repo', (event, folderPath) => {
   store.removeUrl(folderPath);
   return true;
+});
+
+ipcMain.handle('is-git-installed', () => {
+  return getGitCommandPath() !== null;
+});
+
+ipcMain.handle('install-git', async (event, { username, email }) => {
+  const tempPath = path.join(app.getPath('temp'), 'Git-Setup-Temp.exe');
+  try {
+    if (mainWindow) mainWindow.webContents.send('git-log', { type: 'info', text: 'Preparing Git installer download...' });
+    
+    // 1. Download Git
+    if (mainWindow) mainWindow.webContents.send('git-log', { type: 'info', text: 'Downloading Git for Windows (v2.45.1)...' });
+    let lastPercent = -1;
+    await downloadGitInstaller(tempPath, (downloaded, total) => {
+      const percent = Math.round((downloaded / total) * 100);
+      if (percent % 10 === 0 && percent !== lastPercent && mainWindow) {
+        lastPercent = percent;
+        mainWindow.webContents.send('git-log', { type: 'info', text: `Git download progress: ${percent}%` });
+      }
+    });
+    
+    if (mainWindow) mainWindow.webContents.send('git-log', { type: 'info', text: 'Download complete! Starting silent background setup...' });
+    
+    // 2. Install Git
+    await runGitSetup(tempPath);
+    
+    // Clean up installer exe
+    fs.unlink(tempPath, () => {});
+    
+    // 3. Configure Git Global credentials
+    if (mainWindow) mainWindow.webContents.send('git-log', { type: 'info', text: 'Setup finished! Configuring global username and email...' });
+    await configureGit(username, email);
+    
+    if (mainWindow) mainWindow.webContents.send('git-log', { type: 'success', text: 'Git has been successfully configured globally!' });
+    return { success: true };
+  } catch (error) {
+    if (fs.existsSync(tempPath)) fs.unlink(tempPath, () => {});
+    if (mainWindow) mainWindow.webContents.send('git-log', { type: 'error', text: `Git Installation failed: ${error.message}` });
+    return { success: false, error: error.message };
+  }
 });

@@ -43,6 +43,14 @@ const btnSettingsUnregister = document.getElementById('btn-settings-unregister')
 const settingsMenuStatus = document.getElementById('settings-menu-status-text');
 const btnSettingsClearAll = document.getElementById('btn-settings-clear-all');
 
+// Git Automatic Installer elements
+const gitInstallModal = document.getElementById('git-install-modal');
+const btnGitInstallCancel = document.getElementById('btn-git-install-cancel');
+const btnGitInstallConfirm = document.getElementById('btn-git-install-confirm');
+const gitUsernameInput = document.getElementById('git-username');
+const gitEmailInput = document.getElementById('git-email');
+const gitInstallError = document.getElementById('git-install-error');
+
 // Helper to append a line to the terminal
 function appendLog(type, text) {
   const line = document.createElement('div');
@@ -79,12 +87,24 @@ async function updateStats(folderPath) {
     statGitStatus.textContent = stats.gitStatus;
     if (stats.gitStatus === 'Clean') {
       statGitStatus.style.color = 'var(--success-color)';
+      statGitStatus.style.cursor = 'default';
+      statGitStatus.title = '';
     } else if (stats.gitStatus === 'Changes') {
       statGitStatus.style.color = 'var(--warning-color)';
+      statGitStatus.style.cursor = 'default';
+      statGitStatus.title = '';
     } else if (stats.gitStatus.startsWith('Ahead')) {
       statGitStatus.style.color = 'var(--info-color)';
+      statGitStatus.style.cursor = 'default';
+      statGitStatus.title = '';
+    } else if (stats.gitStatus === 'No Git') {
+      statGitStatus.style.color = 'var(--error-color)';
+      statGitStatus.style.cursor = 'pointer';
+      statGitStatus.title = 'Click to install Git';
     } else {
       statGitStatus.style.color = 'var(--text-primary)';
+      statGitStatus.style.cursor = 'default';
+      statGitStatus.title = '';
     }
     
     statRepoLink.textContent = stats.repoConnected;
@@ -273,6 +293,14 @@ function hideBanner() {
 
 // Main Git Push Trigger
 async function executePush(force = false) {
+  // Intercept if Git is not installed
+  const gitInstalled = await window.api.isGitInstalled();
+  if (!gitInstalled) {
+    appendLog('warning', 'Git is not installed on your system. Launching automatic setup...');
+    showGitInstallModal();
+    return;
+  }
+
   const folderPath = folderPathInput.value.trim();
   const repoUrl = repoUrlInput.value.trim();
   const commitMessage = commitMessageInput.value.trim();
@@ -623,6 +651,102 @@ document.querySelector('.dot.yellow').addEventListener('click', () => {
 
 document.querySelector('.dot.green').addEventListener('click', () => {
   appendLog('system', 'Terminal status check: System online. All systems functional.');
+});
+
+// Git Installer Modal Actions
+function showGitInstallModal() {
+  gitInstallError.style.display = 'none';
+  gitInstallError.textContent = '';
+  gitUsernameInput.value = '';
+  gitEmailInput.value = '';
+  gitInstallModal.classList.add('active');
+  gitUsernameInput.focus();
+}
+
+btnGitInstallCancel.addEventListener('click', () => {
+  gitInstallModal.classList.remove('active');
+  appendLog('info', 'Git setup aborted by user.');
+});
+
+btnGitInstallConfirm.addEventListener('click', async () => {
+  const username = gitUsernameInput.value.trim();
+  const email = gitEmailInput.value.trim();
+
+  // Basic Validation
+  if (!username) {
+    gitInstallError.textContent = 'Please enter a GitHub Username.';
+    gitInstallError.style.display = 'block';
+    gitUsernameInput.focus();
+    return;
+  }
+  
+  if (!email) {
+    gitInstallError.textContent = 'Please enter a GitHub Email Address.';
+    gitInstallError.style.display = 'block';
+    gitEmailInput.focus();
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    gitInstallError.textContent = 'Please enter a valid Email Address.';
+    gitInstallError.style.display = 'block';
+    gitEmailInput.focus();
+    return;
+  }
+
+  gitInstallError.style.display = 'none';
+  gitInstallError.textContent = '';
+
+  // Lock modal inputs
+  gitUsernameInput.disabled = true;
+  gitEmailInput.disabled = true;
+  btnGitInstallCancel.disabled = true;
+  btnGitInstallConfirm.disabled = true;
+  const originalConfirmText = btnGitInstallConfirm.textContent;
+  btnGitInstallConfirm.textContent = 'Installing Git...';
+
+  appendLog('system', '\n=== Starting Git Auto-Installer pipeline ===');
+
+  try {
+    setupLogsStream();
+    const result = await window.api.installGit(username, email);
+    if (result.success) {
+      gitInstallModal.classList.remove('active');
+      
+      // Refresh folder stats
+      const folderPath = folderPathInput.value.trim();
+      await updateStats(folderPath);
+      
+      // Auto resume push
+      if (folderPath && repoUrlInput.value.trim()) {
+        appendLog('success', 'Git setup complete. Automatically resuming your push to GitHub!');
+        await executePush(false);
+      }
+    } else {
+      gitInstallError.textContent = `Setup failed: ${result.error}`;
+      gitInstallError.style.display = 'block';
+      appendLog('error', `Git installation failed: ${result.error}`);
+    }
+  } catch (err) {
+    gitInstallError.textContent = `Setup failed: ${err.message}`;
+    gitInstallError.style.display = 'block';
+    appendLog('error', `Git installation pipeline error: ${err.message}`);
+  } finally {
+    gitUsernameInput.disabled = false;
+    gitEmailInput.disabled = false;
+    btnGitInstallCancel.disabled = false;
+    btnGitInstallConfirm.disabled = false;
+    btnGitInstallConfirm.textContent = originalConfirmText;
+  }
+});
+
+// Click Git Status "No Git" badge to configure
+statGitStatus.addEventListener('click', async () => {
+  const gitInstalled = await window.api.isGitInstalled();
+  if (!gitInstalled) {
+    showGitInstallModal();
+  }
 });
 
 // App Initialization
