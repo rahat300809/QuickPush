@@ -84,7 +84,7 @@ async function isInternetAvailable() {
 /**
  * Main function to execute the automated git push pipeline.
  */
-async function runGitPush({ folderPath, repoUrl, commitMessage }, onLog) {
+async function runGitPush({ folderPath, repoUrl, commitMessage, force = false }, onLog) {
   // 1. Verify folder exists
   if (!fs.existsSync(folderPath)) {
     throw new Error(`Local folder path does not exist: ${folderPath}`);
@@ -181,12 +181,30 @@ async function runGitPush({ folderPath, repoUrl, commitMessage }, onLog) {
   }
 
   // 8. Push changes
-  onLog('info', 'Pushing commits to remote (git push -u origin main)...');
+  if (force) {
+    onLog('system', 'Force push enabled! Pushing commits to remote (git push -f -u origin main)...');
+  } else {
+    onLog('info', 'Pushing commits to remote (git push -u origin main)...');
+  }
+
   try {
-    await spawnPromise('git', ['push', '-u', 'origin', 'main'], options, onLog);
+    const pushArgs = ['push', '-u', 'origin', 'main'];
+    if (force) {
+      pushArgs.splice(1, 0, '-f');
+    }
+    await spawnPromise('git', pushArgs, options, onLog);
     onLog('success', 'Successfully pushed repository to GitHub!');
   } catch (err) {
     const errMsg = err.message;
+    if (
+      errMsg.includes('rejected') ||
+      errMsg.includes('non-fast-forward') ||
+      errMsg.includes('fetch first') ||
+      errMsg.includes('Updates were rejected')
+    ) {
+      throw new Error('GIT_PUSH_CONFLICT: Remote contains changes that do not exist locally.');
+    }
+
     if (
       errMsg.includes('Authentication failed') ||
       errMsg.includes('could not read Username') ||

@@ -18,5 +18,11 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('folder-loaded', listener);
     return () => ipcRenderer.removeListener('folder-loaded', listener);
   },
-  getInitialFolder: () => ipcRenderer.invoke('get-initial-folder')
+  getInitialFolder: () => ipcRenderer.invoke('get-initial-folder'),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  getFolderStats: (folderPath) => ipcRenderer.invoke('get-folder-stats', folderPath),
+  getRecentRepos: () => ipcRenderer.invoke('get-recent-repos'),
+  getSyncHistory: () => ipcRenderer.invoke('get-sync-history'),
+  clearSyncHistory: () => ipcRenderer.invoke('clear-sync-history'),
+  untrackRepo: (folderPath) => ipcRenderer.invoke('untrack-repo', folderPath)
 });
