@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Git Quick Push</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="logo-container">
+      <div class="logo-icon">
+        <!-- Custom Git Branch Cloud SVG -->
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.66 0 3 1.34 3 3v3.57c.81.25 1.4.92 1.5 1.76l.4 2.07z"/>
+        </svg>
+      </div>
+      <h1>Git Quick Push</h1>
+    </div>
+    
+    <label class="context-menu-toggle">
+      <span>Explorer Menu</span>
+      <div class="switch">
+        <input type="checkbox" id="context-menu-checkbox">
+        <span class="slider"></span>
+      </div>
+    </label>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="folder-path">Local Project Directory</label>
+          <div class="input-with-button">
+            <input type="text" id="folder-path" placeholder="Click Browse to select a folder..." readonly>
+            <button class="btn-secondary" id="btn-browse" title="Select Folder">
+              <svg viewBox="0 0 24 24">
+                <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+              </svg>
+              Browse
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="repo-url">GitHub Repository URL</label>
+          <input type="text" id="repo-url" placeholder="https://github.com/username/repository.git">
+        </div>
+
+        <div class="form-group">
+          <label for="commit-message">Commit Message</label>
+          <input type="text" id="commit-message" value="Auto Commit" placeholder="Enter commit message...">
+        </div>
+
+        <button class="btn-primary" id="btn-push">
+          <span class="spinner"></span>
+          <span class="btn-text">Push to GitHub</span>
+        </button>
+      </div>
+
+      <div id="status-banner" class="status-banner"></div>
+    </section>
+
+    <section class="console-container">
+      <div class="console-header">
+        <div class="console-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--info-color)">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+          Console Terminal
+        </div>
+        <div class="console-actions">
+          <label class="console-checkbox-label">
+            <input type="checkbox" id="checkbox-autoscroll" checked> Auto-scroll
+          </label>
+          <button class="btn-clear" id="btn-clear-logs">Clear Logs</button>
+        </div>
+      </div>
+      
+      <div class="terminal" id="terminal-logs">
+        <div class="log-line info">Welcome to Git Quick Push! Please select a project folder to begin.</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

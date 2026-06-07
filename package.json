@@ -1,0 +1,50 @@
+{
+  "name": "git-quick-push",
+  "version": "1.0.0",
+  "description": "Windows desktop app to quickly push local directories to GitHub repositories",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "package": "electron-packager . \"Git-Quick-Push\" --platform=win32 --arch=x64 --out=dist --overwrite",
+    "installer": "node build-installer.js"
+  },
+  "keywords": [
+    "git",
+    "github",
+    "push",
+    "windows",
+    "electron"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-packager": "^17.1.2",
+    "electron-winstaller": "^5.4.0"
+  },
+  "build": {
+    "appId": "com.gitquickpush.app",
+    "productName": "Git Quick Push",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Git Quick Push"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ]
+  }
+}
