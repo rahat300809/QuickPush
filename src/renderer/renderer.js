@@ -51,6 +51,8 @@ const btnGitInstallConfirm = document.getElementById('btn-git-install-confirm');
 const gitUsernameInput = document.getElementById('git-username');
 const gitEmailInput = document.getElementById('git-email');
 const gitInstallError = document.getElementById('git-install-error');
+const loadingOverlay = document.getElementById('loading-overlay');
+const loadingOverlayText = document.getElementById('loading-overlay-text');
 
 // Helper to append a line to the terminal
 function appendLog(type, text) {
@@ -262,6 +264,9 @@ function setupLogsStream() {
   
   cleanupLogsListener = window.api.onGitLog(({ type, text }) => {
     appendLog(type, text);
+    if (loadingOverlay && loadingOverlay.classList.contains('active')) {
+      loadingOverlayText.textContent = text;
+    }
   });
 }
 
@@ -791,6 +796,10 @@ btnGitInstallConfirm.addEventListener('click', async () => {
   const originalConfirmText = btnGitInstallConfirm.textContent;
   btnGitInstallConfirm.textContent = 'Installing Git...';
 
+  // Show loading overlay
+  loadingOverlayText.textContent = 'Preparing Git installer...';
+  loadingOverlay.classList.add('active');
+
   appendLog('system', '\n=== Starting Git Auto-Installer pipeline ===');
 
   try {
@@ -818,6 +827,7 @@ btnGitInstallConfirm.addEventListener('click', async () => {
     gitInstallError.style.display = 'block';
     appendLog('error', `Git installation pipeline error: ${err.message}`);
   } finally {
+    loadingOverlay.classList.remove('active');
     gitUsernameInput.disabled = false;
     gitEmailInput.disabled = false;
     btnGitInstallCancel.disabled = false;

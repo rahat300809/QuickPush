@@ -383,20 +383,29 @@
         
         <div class="form-group" style="margin-top: 10px;">
           <label for="git-username" style="font-size: 0.75rem;">GitHub Username</label>
-          <input type="text" id="git-username" placeholder="e.g. MD Rahat Mahamud" style="background: var(--bg-main); width: 100%;">
+          <input type="text" id="git-username" placeholder="e.g. john_doe" style="background: var(--bg-main); width: 100%;">
         </div>
         
         <div class="form-group" style="margin-top: 8px;">
           <label for="git-email" style="font-size: 0.75rem;">GitHub Email Address</label>
-          <input type="text" id="git-email" placeholder="e.g. 252-15-234@diu.edu.bd" style="background: var(--bg-main); width: 100%;">
+          <input type="text" id="git-email" placeholder="e.g. john.doe@example.com" style="background: var(--bg-main); width: 100%;">
         </div>
         
         <div id="git-install-error" style="color: var(--error-color); font-size: 0.82rem; font-weight: 600; margin-top: 10px; display: none; text-align: left;"></div>
       </div>
       <div class="modal-actions">
         <button class="btn-modal-cancel" id="btn-git-install-cancel">Cancel</button>
-        <button class="btn-modal-confirm" id="btn-git-install-confirm" style="background: var(--primary-gradient); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);">Install & Setup Git</button>
+        <button class="btn-modal-confirm" id="btn-git-install-confirm" style="background: var(--primary-gradient); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);">Install & Setup Git</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Transparent Loading Overlay for Git Installer -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner-container">
+      <div class="spinner-ring"></div>
+      <div class="loading-text" id="loading-overlay-text">Downloading & Installing Git...</div>
+      <div class="loading-subtext">This may take a minute. Please do not close the application.</div>
     </div>
   </div>
 
