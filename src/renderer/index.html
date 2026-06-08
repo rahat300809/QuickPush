@@ -55,7 +55,7 @@
           New Repository
         </button>
         <div class="footer-links">
-          <a href="#" id="link-docs">Docs</a>
+          <a href="#" id="link-docs">Export History (PDF)</a>
           <a href="#" id="link-logout">Logout</a>
         </div>
       </div>
@@ -137,12 +137,20 @@
               <input type="text" id="commit-message" value="Auto Commit" placeholder="Enter your changes description...">
             </div>
 
-            <!-- Push Action button -->
-            <button class="btn-push-action" id="btn-push">
-              <span class="spinner"></span>
-              <svg class="btn-push-icon" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-              <span class="btn-text">Push to GitHub</span>
-            </button>
+            <!-- Actions Container -->
+            <div class="actions-container">
+              <button class="btn-commit-action" id="btn-commit">
+                <span class="spinner"></span>
+                <svg class="btn-commit-icon" viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zM2 11h5c.55 0 1 .45 1 1s-.45 1-1 1H2c-.55 0-1-.45-1-1s.45-1 1-1zm15 0h5c.55 0 1 .45 1 1s-.45 1-1 1h-5c-.55 0-1-.45-1-1s.45-1 1-1z"/></svg>
+                <span class="btn-text">Commit Locally</span>
+              </button>
+
+              <button class="btn-push-action" id="btn-push">
+                <span class="spinner"></span>
+                <svg class="btn-push-icon" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                <span class="btn-text">Push to GitHub</span>
+              </button>
+            </div>
 
             <div id="status-banner" class="status-banner"></div>
           </div>

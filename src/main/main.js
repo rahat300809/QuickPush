@@ -3,7 +3,7 @@ const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { store, historyStore } = require('./store');
-const { runGitPush } = require('./git-service');
+const { runGitPush, runGitCommit } = require('./git-service');
 const { getGitCommandPath, downloadGitInstaller, runGitSetup, configureGit } = require('./git-installer');
 const {
   registerContextMenu,
@@ -195,6 +195,36 @@ ipcMain.handle('run-git-push', async (event, { folderPath, repoUrl, commitMessag
   }
 });
 
+ipcMain.handle('run-git-commit', async (event, { folderPath, repoUrl, commitMessage }) => {
+  try {
+    await runGitCommit({ folderPath, repoUrl, commitMessage }, (type, text) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('git-log', { type, text });
+      }
+    });
+    // Log success
+    historyStore.addLog({
+      folderPath,
+      folderName: path.basename(folderPath),
+      repoUrl: repoUrl || 'Local Only',
+      commitMessage,
+      status: 'Committed'
+    });
+    return { success: true };
+  } catch (error) {
+    // Log failure
+    historyStore.addLog({
+      folderPath,
+      folderName: path.basename(folderPath),
+      repoUrl: repoUrl || 'Local Only',
+      commitMessage,
+      status: 'Commit Failed',
+      error: error.message
+    });
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('register-context-menu', async () => {
   return await registerContextMenu();
 });
@@ -380,3 +410,257 @@ ipcMain.handle('install-git', async (event, { username, email }) => {
     return { success: false, error: error.message };
   }
 });
+
+function generateHistoryHtml(logs) {
+  const escapeHtml = (str) => {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#039;');
+  };
+
+  const successCount = logs.filter(l => l.status === 'Success').length;
+  const committedCount = logs.filter(l => l.status === 'Committed').length;
+  const failedCount = logs.filter(l => l.status === 'Failed' || l.status === 'Commit Failed').length;
+  const totalCount = logs.length;
+
+  const rowsHtml = logs.map(log => {
+    const date = new Date(log.timestamp).toLocaleString();
+    let statusBadgeColor = '#ef4444'; // default red
+    let statusText = log.status;
+    if (log.status === 'Success') statusBadgeColor = '#10b981'; // green
+    if (log.status === 'Committed') statusBadgeColor = '#3b82f6'; // blue
+    
+    return `
+      <tr>
+        <td style="white-space: nowrap;">${date}</td>
+        <td>
+          <strong style="color: #0f172a; font-size: 0.9em;">${escapeHtml(log.folderName)}</strong><br/>
+          <span style="font-size: 0.75em; color: #64748b;">${escapeHtml(log.folderPath)}</span>
+        </td>
+        <td><span style="font-size: 0.8em; color: #10b981; font-weight: 600;">${escapeHtml(log.repoUrl)}</span></td>
+        <td><span style="font-style: italic; font-size: 0.85em;">"${escapeHtml(log.commitMessage)}"</span></td>
+        <td>
+          <span style="
+            background: ${statusBadgeColor}15;
+            color: ${statusBadgeColor};
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            display: inline-block;
+          ">${statusText}</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Git Quick Push History</title>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        body {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          color: #1e293b;
+          background-color: #ffffff;
+          margin: 0;
+          padding: 24px;
+          -webkit-print-color-adjust: exact;
+        }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 2px solid #e2e8f0;
+          padding-bottom: 16px;
+          margin-bottom: 24px;
+        }
+        .logo-title {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .logo {
+          width: 32px;
+          height: 32px;
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          border-radius: 8px;
+        }
+        .title-text h1 {
+          font-size: 1.5rem;
+          margin: 0;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          color: #0f172a;
+        }
+        .title-text p {
+          font-size: 0.8rem;
+          margin: 4px 0 0 0;
+          color: #475569;
+        }
+        .report-meta {
+          font-size: 0.78rem;
+          color: #64748b;
+          text-align: right;
+        }
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+        .stat-card {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 12px;
+          background: #f8fafc;
+          text-align: center;
+        }
+        .stat-val {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 4px;
+        }
+        .stat-label {
+          font-size: 0.7rem;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          font-weight: 600;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 10px;
+        }
+        th, td {
+          padding: 10px 12px;
+          text-align: left;
+          border-bottom: 1px solid #e2e8f0;
+          font-size: 0.8rem;
+        }
+        th {
+          background-color: #f1f5f9;
+          color: #475569;
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 0.72rem;
+          letter-spacing: 0.05em;
+        }
+        tr:hover {
+          background-color: #f8fafc;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="logo-title">
+          <div class="logo"></div>
+          <div class="title-text">
+            <h1>Git Quick Push</h1>
+            <p>Sync & Commit History Report</p>
+          </div>
+        </div>
+        <div class="report-meta">
+          <strong>Generated on:</strong> ${new Date().toLocaleString()}<br/>
+          <strong>Source:</strong> Local sync history logs
+        </div>
+      </div>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-val">${totalCount}</div>
+          <div class="stat-label">Total Syncs</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" style="color: #10b981;">${successCount}</div>
+          <div class="stat-label">Pushes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" style="color: #3b82f6;">${committedCount}</div>
+          <div class="stat-label">Local Commits</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" style="color: #ef4444;">${failedCount}</div>
+          <div class="stat-label">Failures</div>
+        </div>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Local Directory</th>
+            <th>Remote URL</th>
+            <th>Commit Message</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
+ipcMain.handle('export-history-pdf', async (event) => {
+  const logs = historyStore.getLogs();
+  if (logs.length === 0) {
+    throw new Error('No history logs available to export.');
+  }
+
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save Sync History PDF',
+    defaultPath: path.join(app.getPath('downloads'), 'git-push-history.pdf'),
+    filters: [
+      { name: 'PDF Files', extensions: ['pdf'] }
+    ]
+  });
+
+  if (canceled || !filePath) {
+    return { success: false, reason: 'cancelled' };
+  }
+
+  const htmlContent = generateHistoryHtml(logs);
+
+  const pdfWindow = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+
+  try {
+    const data = await pdfWindow.webContents.printToPDF({
+      margins: {
+        top: 0.4,
+        bottom: 0.4,
+        left: 0.4,
+        right: 0.4
+      },
+      pageSize: 'A4',
+      printBackground: true
+    });
+
+    fs.writeFileSync(filePath, data);
+    return { success: true, filePath };
+  } catch (error) {
+    console.error('Failed to generate PDF:', error);
+    throw error;
+  } finally {
+    pdfWindow.destroy();
+  }
+});
+

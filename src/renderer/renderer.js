@@ -4,6 +4,7 @@ const btnBrowse = document.getElementById('btn-browse');
 const repoUrlInput = document.getElementById('repo-url');
 const commitMessageInput = document.getElementById('commit-message');
 const btnPush = document.getElementById('btn-push');
+const btnCommit = document.getElementById('btn-commit');
 const contextMenuCheckbox = document.getElementById('context-menu-checkbox');
 const autoscrollCheckbox = document.getElementById('checkbox-autoscroll');
 const btnClearLogs = document.getElementById('btn-clear-logs');
@@ -265,18 +266,22 @@ function setupLogsStream() {
 }
 
 // Disable/Enable form controls during operation
-function setFormLocked(locked) {
+function setFormLocked(locked, activeBtn = null) {
   folderPathInput.disabled = locked;
   btnBrowse.disabled = locked;
   repoUrlInput.disabled = locked;
   commitMessageInput.disabled = locked;
   btnPush.disabled = locked;
+  btnCommit.disabled = locked;
   btnSidebarReset.disabled = locked;
   
   if (locked) {
-    btnPush.classList.add('loading');
+    if (activeBtn) {
+      activeBtn.classList.add('loading');
+    }
   } else {
     btnPush.classList.remove('loading');
+    btnCommit.classList.remove('loading');
   }
 }
 
@@ -329,7 +334,7 @@ async function executePush(force = false) {
   const finalCommitMessage = commitMessage || 'Auto Commit';
 
   hideBanner();
-  setFormLocked(true);
+  setFormLocked(true, btnPush);
   appendLog('system', `\n=== Starting Git Push pipeline (Force: ${force}) ===`);
 
   try {
@@ -372,7 +377,68 @@ async function executePush(force = false) {
   }
 }
 
+// Main Git Commit Trigger
+async function executeCommit() {
+  // Intercept if Git is not installed
+  const gitInstalled = await window.api.isGitInstalled();
+  if (!gitInstalled) {
+    appendLog('warning', 'Git is not installed on your system. Launching automatic setup...');
+    showGitInstallModal();
+    return;
+  }
+
+  const folderPath = folderPathInput.value.trim();
+  const repoUrl = repoUrlInput.value.trim();
+  const commitMessage = commitMessageInput.value.trim();
+
+  // Basic Validation
+  if (!folderPath) {
+    showBanner('error', 'Please select a local project directory.');
+    appendLog('error', 'Validation error: Local folder path is missing.');
+    return;
+  }
+
+  const finalCommitMessage = commitMessage || 'Auto Commit';
+
+  hideBanner();
+  setFormLocked(true, btnCommit);
+  appendLog('system', `\n=== Starting Git Commit pipeline ===`);
+
+  try {
+    if (repoUrl) {
+      const gitUrlRegex = /^(https:\/\/github\.com\/|git@github\.com:).+\.git$/;
+      if (gitUrlRegex.test(repoUrl)) {
+        await window.api.saveUrl(folderPath, repoUrl);
+      }
+    }
+    setupLogsStream();
+
+    const result = await window.api.runGitCommit({
+      folderPath,
+      repoUrl,
+      commitMessage: finalCommitMessage
+    });
+
+    if (result.success) {
+      showBanner('success', 'Changes successfully committed locally!');
+      appendLog('success', '=== Commit pipeline completed successfully! ===\n');
+      
+      await updateStats(folderPath);
+      await loadRecentRepos();
+    } else {
+      showBanner('error', result.error || 'An unexpected error occurred during Git execution.');
+      appendLog('error', `=== Commit pipeline failed: ${result.error} ===\n`);
+    }
+  } catch (error) {
+    showBanner('error', error.message || 'An unexpected error occurred.');
+    appendLog('error', `=== Commit pipeline error: ${error.message} ===\n`);
+  } finally {
+    setFormLocked(false);
+  }
+}
+
 btnPush.addEventListener('click', () => executePush(false));
+btnCommit.addEventListener('click', () => executeCommit());
 
 // Force Push Modal Actions
 btnForceCancel.addEventListener('click', () => {
@@ -547,7 +613,12 @@ async function loadSyncHistory() {
     }
     logs.forEach(log => {
       const date = new Date(log.timestamp).toLocaleString();
-      const statusClass = log.status === 'Success' ? 'success' : 'failed';
+      let statusClass = 'failed';
+      if (log.status === 'Success') {
+        statusClass = 'success';
+      } else if (log.status === 'Committed') {
+        statusClass = 'committed';
+      }
       const row = document.createElement('tr');
       row.innerHTML = `
         <td style="white-space: nowrap;">${date}</td>
@@ -630,8 +701,22 @@ btnSettingsClearAll.addEventListener('click', async () => {
   }
 });
 
-// Sidebar Coming Soon links overrides
-document.getElementById('link-docs').addEventListener('click', () => appendLog('info', 'Documentation: Coming soon.'));
+// Sidebar footer Export History to PDF trigger
+document.getElementById('link-docs').addEventListener('click', async (e) => {
+  e.preventDefault();
+  appendLog('system', 'Generating Sync History report...');
+  try {
+    const result = await window.api.exportHistoryPdf();
+    if (result.success) {
+      appendLog('success', `PDF Report successfully exported to: ${result.filePath}`);
+    } else if (result.reason === 'cancelled') {
+      appendLog('info', 'PDF Export cancelled by user.');
+    }
+  } catch (error) {
+    appendLog('error', `Failed to export PDF: ${error.message}`);
+    showBanner('error', `PDF Export Error: ${error.message}`);
+  }
+});
 document.getElementById('link-logout').addEventListener('click', () => appendLog('info', 'Logout triggered. Close the app to exit.'));
 
 // Terminal mac dot controls

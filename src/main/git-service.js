@@ -227,6 +227,102 @@ async function runGitPush({ folderPath, repoUrl, commitMessage, force = false },
   }
 }
 
+/**
+ * Main function to execute local git commit pipeline.
+ */
+async function runGitCommit({ folderPath, repoUrl, commitMessage }, onLog) {
+  // 1. Verify folder exists
+  if (!fs.existsSync(folderPath)) {
+    throw new Error(`Local folder path does not exist: ${folderPath}`);
+  }
+
+  // 2. Check Git installation
+  onLog('info', 'Checking if Git is installed on your system...');
+  const gitInstalled = await isGitInstalled();
+  if (!gitInstalled) {
+    throw new Error(
+      'Git is not installed or not available in the system PATH.\n' +
+      'Please install Git (https://git-scm.com/) and make sure it is added to your environment variables.'
+    );
+  }
+
+  const options = { cwd: folderPath };
+
+  // 3. Check if .git folder exists
+  const dotGitPath = path.join(folderPath, '.git');
+  const isExistingRepo = fs.existsSync(dotGitPath);
+
+  if (!isExistingRepo) {
+    onLog('info', 'No Git repository detected in the directory. Initializing repository (git init)...');
+    await spawnPromise('git', ['init'], options, onLog);
+  } else {
+    onLog('info', 'Existing Git repository detected in the directory. Skipping initialization.');
+  }
+
+  // 4. Handle Remote Origin
+  if (repoUrl) {
+    let originExists = false;
+    let existingUrl = '';
+    try {
+      const remotes = await spawnPromise('git', ['remote'], options, () => {}); // silent
+      const remoteList = remotes.split(/\s+/).map((r) => r.trim()).filter(Boolean);
+      if (remoteList.includes('origin')) {
+        originExists = true;
+        existingUrl = await spawnPromise('git', ['remote', 'get-url', 'origin'], options, () => {}); // silent
+      }
+    } catch (err) {
+      originExists = false;
+    }
+
+    if (!originExists) {
+      onLog('info', `Configuring remote origin pointing to: ${repoUrl}`);
+      await spawnPromise('git', ['remote', 'add', 'origin', repoUrl], options, onLog);
+    } else if (existingUrl.trim() !== repoUrl.trim()) {
+      onLog('info', `Updating existing remote origin URL from "${existingUrl.trim()}" to "${repoUrl.trim()}"`);
+      await spawnPromise('git', ['remote', 'set-url', 'origin', repoUrl], options, onLog);
+    } else {
+      onLog('info', 'Remote origin already matches the target repository.');
+    }
+  }
+
+  // 5. Check if there are changes to stage/commit
+  onLog('info', 'Scanning repository for uncommitted changes...');
+  let changesExist = false;
+  try {
+    const status = await spawnPromise('git', ['status', '--porcelain'], options, () => {}); // silent
+    if (status.trim().length > 0) {
+      changesExist = true;
+    }
+  } catch (err) {
+    changesExist = true;
+  }
+
+  if (changesExist) {
+    onLog('info', 'Staging changes (git add .)...');
+    await spawnPromise('git', ['add', '.'], options, onLog);
+
+    onLog('info', `Committing changes (git commit -m "${commitMessage}")...`);
+    try {
+      await spawnPromise('git', ['commit', '-m', commitMessage], options, onLog);
+    } catch (err) {
+      if (err.message.includes('nothing to commit') || err.message.includes('working tree clean')) {
+        onLog('info', 'Nothing to commit, working tree is clean.');
+      } else {
+        throw err;
+      }
+    }
+  } else {
+    onLog('info', 'No uncommitted changes detected. Skipping stage and commit steps.');
+  }
+
+  // 6. Branch setup
+  onLog('info', 'Setting default branch name to main (git branch -M main)...');
+  await spawnPromise('git', ['branch', '-M', 'main'], options, onLog);
+
+  onLog('success', 'Successfully committed changes locally!');
+}
+
 module.exports = {
-  runGitPush
+  runGitPush,
+  runGitCommit
 };

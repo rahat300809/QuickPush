@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('api', {
   getSavedUrl: (folderPath) => ipcRenderer.invoke('get-saved-url', folderPath),
   saveUrl: (folderPath, repoUrl) => ipcRenderer.invoke('save-url', folderPath, repoUrl),
   runGitPush: (params) => ipcRenderer.invoke('run-git-push', params),
+  runGitCommit: (params) => ipcRenderer.invoke('run-git-commit', params),
   onGitLog: (callback) => {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('git-log', listener);
@@ -26,5 +27,6 @@ contextBridge.exposeInMainWorld('api', {
   clearSyncHistory: () => ipcRenderer.invoke('clear-sync-history'),
   untrackRepo: (folderPath) => ipcRenderer.invoke('untrack-repo', folderPath),
   isGitInstalled: () => ipcRenderer.invoke('is-git-installed'),
-  installGit: (username, email) => ipcRenderer.invoke('install-git', { username, email })
+  installGit: (username, email) => ipcRenderer.invoke('install-git', { username, email }),
+  exportHistoryPdf: () => ipcRenderer.invoke('export-history-pdf')
 });
